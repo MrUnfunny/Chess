@@ -1,98 +1,166 @@
 import 'dart:io';
 
-//FEN Strings
-String startPos = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-String testPos = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+import 'piece.dart';
 
-enum Piece { b, B, k, K, n, N, p, P, q, Q, r, R, _, o }
+bool isInt(String num) {
+  if (num == null) {
+    return false;
+  } else {
+    return int.tryParse(num) != null;
+  }
+}
 
-extension on Piece {
-  String get ascii {
-    switch (this) {
-      case Piece.b:
-        return 'b';
+class FEN {
+  String piecePlacement;
+  String activeColor;
+  String castling;
+  String enPassant;
+  String halfMove;
+  String fullMove;
 
-      case Piece.B:
-        return 'B';
+  FEN(String fenString) {
+    final fen = fenString.split(' ');
 
-      case Piece.k:
-        return 'k';
+    validateFen(fenString);
 
-      case Piece.K:
-        return 'K';
+    this.piecePlacement = fen[0];
+    this.activeColor = fen[1];
+    this.castling = fen[2];
+    this.enPassant = fen[3];
+    this.halfMove = fen[4];
+    this.fullMove = fen[5];
+  }
 
-      case Piece.n:
-        return 'n';
+  validateFen(String fenString) {
+    final fen = fenString.split(' ');
 
-      case Piece.N:
-        return 'N';
+    //Checking Fen String Length
+    if (fen.length != 6) {
+      throw Exception("Invalid FEN String -- String does not have 6 components");
+    }
 
-      case Piece.p:
-        return 'p';
+    //Checks if piecePlacement has 8 ranks
+    final fenRows = fen[0].split('/');
 
-      case Piece.P:
-        return 'P';
+    if (fenRows.length != 8) {
+      throw Exception("Invalid FEN String -- Number of ranks is not equal to 8");
+    }
 
-      case Piece.q:
-        return 'q';
+    //Checks if each file is valid
+    List<String> chars = ['p', 'P', 'r', 'R', 'n', 'N', 'b', 'B', 'q', 'Q', 'k', 'K'];
 
-      case Piece.Q:
-        return 'Q';
+    bool darkKingPresent = false;
+    bool lightKingPresent = false;
 
-      case Piece.r:
-        return 'r';
+    for (int i = 0; i < fenRows.length; i++) {
+      int sum = 0;
+      for (int j = 0; j < fenRows[i].length; j++) {
+        if (chars.contains(fenRows[i][j])) {
+          if (fenRows[i][j] == 'k') {
+            if (darkKingPresent) {
+              throw Exception("Invalid FEN -- multiple Dark Kings");
+            } else {
+              darkKingPresent = true;
+            }
+          }
+          if (fenRows[i][j] == 'K') {
+            if (lightKingPresent) {
+              throw Exception("Invalid FEN -- multiple Light Kings");
+            } else {
+              lightKingPresent = true;
+            }
+          }
+          sum++;
+        } else if (isInt(fenRows[i][j])) {
+          if (j + 1 < fenRows[i].length && isInt(fenRows[i][j + 1])) {
+            throw Exception("Invalid FEN String -- Consecutive integers in file ${i + 1} ");
+          }
+          sum += int.parse(fenRows[i][j]);
+        }
+      }
+      if (sum != 8) {
+        throw Exception("Invalid FEN String -- Number of squares in file ${i + 1} is not equal to 8");
+      }
+    }
 
-      case Piece.R:
-        return 'R';
+    //Checks if piecePlacement contains 1 black and 1 white king
+    if (!darkKingPresent || !lightKingPresent) {
+      throw Exception("Invalid FEN String -- 1 black and 1 white king expected in piecePlacement");
+    }
 
-      case Piece._:
-        return '.';
+    //Checks for valid activeColor
+    RegExp activeColorCheck = RegExp(r"^(w|b)$");
+    if (activeColorCheck.firstMatch(fen[1]) == null) {
+      throw Exception("Invalid FEN String -- Invalid Active Color");
+    }
 
-      default:
-        return null;
+    //Checks for valid Castling Rights
+    RegExp castlingCheck = RegExp(r"^(K?Q?k?q?|-)$");
+    if (castlingCheck.firstMatch(fen[2]) == null) {
+      throw Exception("Invalid FEN String -- Invalid Castling Rights");
+    }
+
+    //Checks for valid en passant square
+    RegExp enPassantCheck = RegExp(r"^([a-h][36]|-)");
+    if (enPassantCheck.firstMatch(fen[3]) == null) {
+      throw Exception("Invalid FEN String -- Invalid En Passant Square");
+    }
+
+    //Checks for valid Half Move
+    if (!isInt(fen[4])) {
+      throw Exception("Invalid FEN String -- Invalid Half Move");
+    } else if (int.parse(fen[4]) < 0) {
+      throw Exception("Invalid FEN String -- Negative Half Move");
+    }
+
+    //Checks for valid Full Move
+    if (!isInt(fen[5])) {
+      throw Exception("Invalid FEN String -- Invalid Full Move");
+    } else if (int.parse(fen[5]) < 0) {
+      throw Exception("Invalid FEN String -- Negative Full Move");
     }
   }
 
-  String get unicode {
-    switch (this) {
-      case Piece.b:
-        return '♗';
+  static Piece fenToPiece(String fen) {
+    switch (fen) {
+      case 'b':
+        return Piece.b;
 
-      case Piece.B:
-        return '♝';
+      case 'B':
+        return Piece.B;
 
-      case Piece.k:
-        return '♔';
+      case 'n':
+        return Piece.n;
 
-      case Piece.K:
-        return '♚';
+      case 'N':
+        return Piece.N;
 
-      case Piece.n:
-        return '♘';
+      case 'p':
+        return Piece.p;
 
-      case Piece.N:
-        return '♞';
+      case 'P':
+        return Piece.P;
 
-      case Piece.p:
-        return '♙';
+      case 'q':
+        return Piece.q;
 
-      case Piece.P:
-        return '♟︎';
+      case 'Q':
+        return Piece.Q;
 
-      case Piece.q:
-        return '♕';
+      case 'k':
+        return Piece.k;
 
-      case Piece.Q:
-        return '♛';
+      case 'K':
+        return Piece.K;
 
-      case Piece.r:
-        return '♖';
+      case 'r':
+        return Piece.r;
 
-      case Piece.R:
-        return '♜';
+      case 'R':
+        return Piece.R;
 
-      case Piece._:
-        return '.';
+      case 'e':
+        return Piece.e;
 
       default:
         return null;
@@ -133,14 +201,14 @@ const List<Piece> StartingBoard = [
   Piece.o,
   Piece.o,
   Piece.o,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
   Piece.o,
   Piece.o,
   Piece.o,
@@ -149,14 +217,14 @@ const List<Piece> StartingBoard = [
   Piece.o,
   Piece.o,
   Piece.o,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
   Piece.o,
   Piece.o,
   Piece.o,
@@ -165,14 +233,14 @@ const List<Piece> StartingBoard = [
   Piece.o,
   Piece.o,
   Piece.o,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
   Piece.o,
   Piece.o,
   Piece.o,
@@ -181,14 +249,14 @@ const List<Piece> StartingBoard = [
   Piece.o,
   Piece.o,
   Piece.o,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
-  Piece._,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
+  Piece.e,
   Piece.o,
   Piece.o,
   Piece.o,
@@ -307,14 +375,64 @@ void printBoard(List<Piece> board) {
         stdout.write(board[square].unicode + ' ');
       }
     }
+
+    stdout.write("         |         ");
+
+    for (int file = 0; file < 16; file++) {
+      int square = 16 * rank + file;
+
+      if ((square & 0x88) == 0) {
+        stdout.write(board[square].char + ' ');
+      }
+    }
     print('');
   }
 }
 
 class Chess {
-  List<String> board = List(128);
-}
+  List<Piece> board = List(128);
 
-main(List<String> args) {
-  printBoard(StartingBoard);
+  static List<Piece> resetBoard(List<Piece> board) {
+    for (int rank = 0; rank < 8; rank++) {
+      for (int file = 0; file < 16; file++) {
+        int square = 16 * rank + file;
+        if ((square & 0x88) == 0) board[square] = Piece.e;
+      }
+    }
+    return board;
+  }
+
+  static List<Piece> updateBoard(String fenString) {
+    List<Piece> myBoard = List(128);
+    int findex = 0;
+
+    myBoard = resetBoard(myBoard);
+
+    for (int rank = 0; rank < 8; rank++) {
+      for (int file = 0; file < 16; file++) {
+        int square = 16 * rank + file;
+
+        if ((square & 0x88) == 0) {
+          RegExp pieceChecker = RegExp(r"^[rnbqkpRNBQKP]$");
+          if (pieceChecker.firstMatch(fenString[findex]) != null) {
+            myBoard[square] = FEN.fenToPiece(fenString[findex]);
+            findex++;
+          }
+
+          if (isInt(fenString[findex])) {
+            if (myBoard[square] == Piece.e) {
+              file--;
+            }
+            file += int.parse(fenString[findex]);
+            findex++;
+          }
+
+          if (fenString[findex] == '/') {
+            findex++;
+          }
+        }
+      }
+    }
+    return myBoard;
+  }
 }
